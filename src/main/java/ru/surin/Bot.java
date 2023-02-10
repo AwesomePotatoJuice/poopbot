@@ -26,7 +26,7 @@ import static ru.surin.ChatMemberStatus.getIsCurrentMembersList;
 @Setter
 public class Bot extends TelegramLongPollingBot {
 
-    public static final String FILE_NAME = "debug.txt";
+    public static final String FILE_NAME = "chats.txt";
 
     private HashSet<Long> chats = new HashSet<>();
 
