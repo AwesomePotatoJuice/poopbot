@@ -5,6 +5,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.LongSerializationPolicy;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.Setter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -12,23 +14,31 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ru.surin.configuration.config.PoopNotificationConfig;
+import ru.surin.configuration.config.TelegramConfig;
+import ru.surin.entity.ChatMemberStatus;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import static ru.surin.ChatMemberStatus.getIsCurrentMembersList;
+import static ru.surin.entity.ChatMemberStatus.getIsCurrentMembersList;
 
 @Setter
+@Component
 public class Bot extends TelegramLongPollingBot {
 
-    public static final String FILE_NAME = "chats.txt";
-
-    private HashSet<Long> chats = new HashSet<>();
+    @Autowired
+    private Set<Long> chats;
+    @Autowired
+    private PoopNotificationConfig poopNotificationConfig;
+    @Autowired
+    private TelegramConfig telegramConfig;
 
     @Override
     public void onUpdateReceived(Update update) {
@@ -43,29 +53,65 @@ public class Bot extends TelegramLongPollingBot {
                     poopHereCommand(update);
                     break;
                 case "/stop":
-                    chats.remove(update.getMessage().getChatId());
+                    stopCommand(update);
                     break;
                 case "/pooped":
                     poopedCommand(update.getMessage().getFrom());
                     break;
+                case "/clear":
+                    clearKeyboard(update);
+                    deleteRecentMessage(update);
+                    break;
             }
+        }
+    }
+
+    private void deleteRecentMessage(Update update) {
+//        DeleteMessage deleteMessage = DeleteMessage.builder()
+//                .chatId(update.getMessage().getChatId())
+//                .messageId()
+//                .build();
+    }
+
+    private void stopCommand(Update update) {
+        chats.remove(update.getMessage().getChatId());
+        clearKeyboard(update);
+        try {
+            saveChatsToFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void clearKeyboard(Update update) {
+        SendMessage message = new SendMessage();
+        message.setChatId(update.getMessage().getChatId().toString());
+        message.enableMarkdown(true);
+        ReplyKeyboardRemove replyKeyboardRemove = new ReplyKeyboardRemove();
+        replyKeyboardRemove.setRemoveKeyboard(true);
+        message.setReplyMarkup(replyKeyboardRemove);
+        message.setText("Keyboard cleared");
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
         }
     }
 
     private void poopHereCommand(Update update) {
         chats.add(update.getMessage().getChatId());
         try {
-            saveToFile();
+            saveChatsToFile();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
-    private void saveToFile() throws IOException {
+    private void saveChatsToFile() throws IOException {
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.setLongSerializationPolicy(LongSerializationPolicy.STRING);
         Gson gson = gsonBuilder.create();
-        FileWriter writer = new FileWriter(FILE_NAME);
+        FileWriter writer = new FileWriter(poopNotificationConfig.getChatFile());
         gson.toJson(chats, writer);
         writer.flush();
     }
@@ -73,7 +119,7 @@ public class Bot extends TelegramLongPollingBot {
     private void poopedCommand(User from) {
         for (Long chat : chats) {
 
-            if (!isMember(from, chat)){
+            if (!isMember(from, chat)) {
                 continue;
             }
 
@@ -117,12 +163,12 @@ public class Bot extends TelegramLongPollingBot {
 
     @Override
     public String getBotUsername() {
-        return "poopnotification_bot";
+        return telegramConfig.getBotName();
     }
 
     @Override
     public String getBotToken() {
-        return "6050726252:AAEaQyw91ZHVgyTHR-NQwKOfCgnwouIniAw";
+        return telegramConfig.getBotToken();
     }
 
     private static ReplyKeyboardMarkup getSettingsKeyboard() {

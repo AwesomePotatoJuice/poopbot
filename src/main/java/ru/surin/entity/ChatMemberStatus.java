@@ -1,7 +1,6 @@
-package ru.surin;
+package ru.surin.entity;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.Getter;
 
 import java.util.List;

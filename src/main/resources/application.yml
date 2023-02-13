@@ -1,0 +1,5 @@
+telegram:
+  bot-name: poopnotification_bot
+  bot-token: 6050726252:AAEaQyw91ZHVgyTHR-NQwKOfCgnwouIniAw
+poopnotification:
+  chat-file: debug.txt
